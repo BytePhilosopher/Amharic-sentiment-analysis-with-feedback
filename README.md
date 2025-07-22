@@ -1,7 +1,3 @@
-
-
----
-
 ```markdown
 # 🇪🇹 QalAnalyzer (ቃል Analyzer)
 
