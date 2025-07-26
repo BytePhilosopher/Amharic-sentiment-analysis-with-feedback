@@ -64,10 +64,20 @@ if st.button("🔎 Analyze Sentiment"):
             prediction = model.predict(transformed_text)[0]
 
         st.markdown("---")
-        st.markdown(f"<h2 style='text-align: center;'>🧠 Predicted Sentiment: <span style='color: #0b8043;'>`{prediction.upper()}`</span></h2>", unsafe_allow_html=True)
+        # Map numerical prediction to sentiment label
+        label_map = {0: "negative", 1: "neutral", 2: "positive"}
+        sentiment_text = label_map.get(prediction, "unknown")
 
-        if prediction == "1":
+        # Display prediction
+        st.markdown(f"<h2 style='text-align: center;'>🧠 Predicted Sentiment: <span style='color: #0b8043;'>`{sentiment_text.upper()}`</span></h2>", unsafe_allow_html=True)
+
+        # Show contextual message
+        if sentiment_text == "positive":
             st.success("🎉 That sounds uplifting!")
-        elif prediction == "0":
+        elif sentiment_text == "negative":
             st.error("😟 That doesn't sound great.")
+        elif sentiment_text == "neutral":
+            st.info("😐 A neutral tone detected.")
+        else:
+            st.warning("🤔 Mixed or unclear sentiment.")
 
