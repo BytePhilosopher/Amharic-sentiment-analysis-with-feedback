@@ -18,38 +18,56 @@ def load_model_and_vectorizer():
 model, vectorizer = load_model_and_vectorizer()
 
 # --------------------------
-# App Title and Intro
+# Page Config and Styling
 # --------------------------
 st.set_page_config(page_title="QalAnalyzer | ቃል Analyzer", layout="centered")
-st.title("🌍 QalAnalyzer | ቃል Analyzer")
-st.subheader("🔍 Amharic Sentiment Classification")
-st.write("Paste or type any Amharic sentence and get its **sentiment prediction**!")
+
+st.markdown("""
+    <style>
+        .main {
+            background-color: #f5f7fa;
+        }
+        .stTextArea textarea {
+            font-size: 18px;
+            font-family: "Noto Sans Ethiopic", sans-serif;
+        }
+        .stButton button {
+            background-color: #1a73e0;
+            color: white;
+            font-size: 18px;
+            padding: 10px 20px;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+# --------------------------
+# App Title and Intro
+# --------------------------
+st.markdown("<h1 style='text-align: center; color: #1a73e0;'>🌍 QalAnalyzer | ቃል Analyzer</h1>", unsafe_allow_html=True)
+st.markdown("<h3 style='text-align: center; color: #fff;'>🔍 Amharic Sentiment Classification using Machine Learning</h3>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center;'>Paste or type an Amharic sentence below to detect its sentiment!</p>", unsafe_allow_html=True)
 
 # --------------------------
 # Input Box
 # --------------------------
-amharic_input = st.text_area("✍️ Enter Amharic text here", height=150)
+amharic_input = st.text_area("✍️ **Enter Amharic text here:**", height=150)
 
 # --------------------------
-# Predict Button
+# Predict Button and Result
 # --------------------------
 if st.button("🔎 Analyze Sentiment"):
     if amharic_input.strip() == "":
-        st.warning("Please enter some Amharic text to analyze.")
+        st.warning("⚠️ Please enter some Amharic text to analyze.")
     else:
-        # Preprocess input
-        transformed_text = vectorizer.transform([amharic_input])
-        prediction = model.predict(transformed_text)[0]
+        with st.spinner("Analyzing sentiment..."):
+            transformed_text = vectorizer.transform([amharic_input])
+            prediction = model.predict(transformed_text)[0]
 
-        # Display result
-        st.success(f"🧠 **Predicted Sentiment:** `{prediction}`")
+        st.markdown("---")
+        st.markdown(f"<h2 style='text-align: center;'>🧠 Predicted Sentiment: <span style='color: #0b8043;'>`{prediction.upper()}`</span></h2>", unsafe_allow_html=True)
 
-        # Optional emoji or comment
-        if prediction == "positive":
-            st.markdown("🎉 That sounds uplifting!")
-        elif prediction == "negative":
-            st.markdown("😟 That doesn't sound great.")
-        elif prediction == "neutral":
-            st.markdown("😐 A neutral tone detected.")
-        else:
-            st.markdown("🤔 Mixed or unclear sentiment.")
+        if prediction == "1":
+            st.success("🎉 That sounds uplifting!")
+        elif prediction == "0":
+            st.error("😟 That doesn't sound great.")
+
