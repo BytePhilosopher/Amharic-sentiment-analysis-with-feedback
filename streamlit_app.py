@@ -65,7 +65,7 @@ if st.button("🔎 Analyze Sentiment"):
 
         st.markdown("---")
         # Map numerical prediction to sentiment label
-        label_map = {0: "negative", 1: "neutral", 2: "positive"}
+        label_map = {0: "negative", 1: "positive", 2: "neutral"}
         sentiment_text = label_map.get(prediction, "unknown")
 
         # Display prediction
