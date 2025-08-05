@@ -7,4 +7,3 @@ streamlit
 nltk
 datasets
 fasttext-wheel
-fasttext
