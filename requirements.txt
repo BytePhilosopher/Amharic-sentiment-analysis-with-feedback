@@ -6,5 +6,4 @@ seaborn
 streamlit
 nltk
 datasets
-fasttext
-re
+fasttext-wheel
