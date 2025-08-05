@@ -164,19 +164,25 @@ import re
 
 st.set_page_config(page_title="QalAnalyzer: ቃል Sentiment Analysis", layout="centered")
 
+# -------------------------------
 # Load FastText model
+# -------------------------------
 @st.cache_resource
 def load_model():
     return fasttext.load_model("models/amharic_fasttext_model.ftz")
 
 model = load_model()
 
-# Clean Amharic text (make sure it's same as used during training)
+# -------------------------------
+# Clean Amharic text
+# -------------------------------
 def clean_amharic(text):
     text = re.sub(r"[^\u1200-\u137F\u1380-\u139F\u2D80-\u2DDF ]", "", text)
     return text.strip()
 
+# -------------------------------
 # Predict sentiment
+# -------------------------------
 def predict_sentiment(text):
     cleaned = clean_amharic(text)
     prediction = model.predict(cleaned)
@@ -184,33 +190,53 @@ def predict_sentiment(text):
     confidence = prediction[1][0]
     return label, confidence
 
-# App header
+# -------------------------------
+# App State Setup
+# -------------------------------
+if "analyzed" not in st.session_state:
+    st.session_state.analyzed = False
+if "prediction" not in st.session_state:
+    st.session_state.prediction = None
+if "confidence" not in st.session_state:
+    st.session_state.confidence = None
+if "text_input" not in st.session_state:
+    st.session_state.text_input = ""
+
+# -------------------------------
+# UI
+# -------------------------------
 st.title("📊 QalAnalyzer - Amharic Sentiment Classifier")
-st.markdown("Analyze sentiment of Amharic text and improve the model via your feedback! 🚀")
+st.markdown("Enter Amharic text below to analyze its sentiment. You can help improve the model with your feedback!")
 
-# Input text
-amharic_input = st.text_area("📝 Enter Amharic text here:")
+st.session_state.text_input = st.text_area("📝 Enter Amharic text here:", value=st.session_state.text_input, height=150)
 
-if amharic_input:
-    label, confidence = predict_sentiment(amharic_input)
-    st.markdown(f"### Prediction: **{label.upper()}** ({confidence:.2%} confidence)")
+# Analyze button
+if st.button("🔍 Analyze Sentiment"):
+    if st.session_state.text_input.strip() == "":
+        st.warning("⚠️ Please enter some Amharic text.")
+    else:
+        label, confidence = predict_sentiment(st.session_state.text_input)
+        st.session_state.prediction = label
+        st.session_state.confidence = confidence
+        st.session_state.analyzed = True
 
-    # Feedback section
+# -------------------------------
+# Results Section
+# -------------------------------
+if st.session_state.analyzed:
+    st.markdown(f"### 🧠 Prediction: **{st.session_state.prediction.upper()}** ({st.session_state.confidence:.2%} confidence)")
+
     st.markdown("---")
     st.subheader("🤔 Was this prediction correct?")
-    feedback = st.radio("Please give your feedback:", ["Yes", "No"], horizontal=True)
+    feedback = st.radio("Give your feedback:", ["Yes", "No"], horizontal=True, key="feedback_radio")
 
     if feedback == "No":
-        correct_label = st.radio("What should the correct label be?", ["positive", "negative"], horizontal=True)
-
+        correct_label = st.radio("Select the correct label:", ["positive", "negative"], horizontal=True)
         if st.button("✅ Submit Feedback"):
-            # Clean input
-            cleaned_text = clean_amharic(amharic_input)
+            cleaned_text = clean_amharic(st.session_state.text_input)
             correct_label_binary = 1 if correct_label == "positive" else 0
-            feedback_data = pd.DataFrame([[cleaned_text, correct_label_binary]],
-                                         columns=["cleaned_tweet", "label"])
+            feedback_data = pd.DataFrame([[cleaned_text, correct_label_binary]], columns=["cleaned_tweet", "label"])
 
-            # Append to dataset
             DATA_PATH = "data/processed/amharic_sentiment_cleaned.csv"
             if os.path.exists(DATA_PATH):
                 existing = pd.read_csv(DATA_PATH)
@@ -220,11 +246,8 @@ if amharic_input:
                 combined = feedback_data
 
             combined.to_csv(DATA_PATH, index=False, encoding="utf-8")
-            st.success("🎉 Thank you! Your feedback was added to the dataset.")
-
-    elif feedback == "Yes":
-        st.success("🙌 Awesome! Glad the prediction was correct.")
-
-st.markdown("---")
-st.caption("Created with ❤️ for Amharic NLP")
-
+            st.success("🎉 Thank you! Your feedback has been saved.")
+            st.session_state.analyzed = False  # reset for next round
+            st.session_state.text_input = ""
+    else:
+        st.success("🙌 Awesome! Glad it worked well.")
