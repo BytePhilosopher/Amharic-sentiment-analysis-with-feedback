@@ -123,3 +123,4 @@ Inspired by the need for Amharic NLP tools.
 > *“ቃል ኃይል ነው።”* — **Words have power.**
 
 ```
+# Amharic-sentiment-analysis-with-feedback
