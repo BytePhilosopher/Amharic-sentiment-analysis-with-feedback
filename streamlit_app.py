@@ -158,20 +158,14 @@
 
 import streamlit as st
 import pandas as pd
-import fasttext
+import numpy as np
+import pickle
 import os
 import re
+from sklearn.linear_model import SGDClassifier
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 st.set_page_config(page_title="QalAnalyzer: ቃል Sentiment Analysis", layout="centered")
-
-# -------------------------------
-# Load FastText model
-# -------------------------------
-@st.cache_resource
-def load_model():
-    return fasttext.load_model("models/amharic_fasttext_model.ftz")
-
-model = load_model()
 
 # -------------------------------
 # Clean Amharic text
@@ -181,14 +175,30 @@ def clean_amharic(text):
     return text.strip()
 
 # -------------------------------
-# Predict sentiment
+# Load Model & Vectorizer
+# -------------------------------
+@st.cache_resource
+def load_vectorizer():
+    with open("models/tfidf_vectorizer.pkl", "rb") as f:
+        return pickle.load(f)
+
+@st.cache_resource
+def load_model():
+    with open("models/sgd_model.pkl", "rb") as f:
+        return pickle.load(f)
+
+vectorizer = load_vectorizer()
+model = load_model()
+
+# -------------------------------
+# Predict Sentiment
 # -------------------------------
 def predict_sentiment(text):
     cleaned = clean_amharic(text)
-    prediction = model.predict(cleaned)
-    label = prediction[0][0].replace("__label__", "")
-    confidence = prediction[1][0]
-    return label, confidence
+    features = vectorizer.transform([cleaned])
+    label = model.predict(features)[0]
+    confidence = np.max(model.predict_proba(features))
+    return "positive" if label == 1 else "negative", confidence
 
 # -------------------------------
 # App State Setup
@@ -210,7 +220,6 @@ st.markdown("Enter Amharic text below to analyze its sentiment. You can help imp
 
 st.session_state.text_input = st.text_area("📝 Enter Amharic text here:", value=st.session_state.text_input, height=150)
 
-# Analyze button
 if st.button("🔍 Analyze Sentiment"):
     if st.session_state.text_input.strip() == "":
         st.warning("⚠️ Please enter some Amharic text.")
@@ -247,7 +256,10 @@ if st.session_state.analyzed:
 
             combined.to_csv(DATA_PATH, index=False, encoding="utf-8")
             st.success("🎉 Thank you! Your feedback has been saved.")
-            st.session_state.analyzed = False  # reset for next round
+            st.session_state.analyzed = False
             st.session_state.text_input = ""
     else:
         st.success("🙌 Awesome! Glad it worked well.")
+
+st.markdown("---")
+st.caption("Created with ❤️ for Amharic NLP")
