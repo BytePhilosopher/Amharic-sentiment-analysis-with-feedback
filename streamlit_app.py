@@ -160,22 +160,34 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
-import os
 import re
+import os
+from datetime import datetime
 from sklearn.linear_model import SGDClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
-
-st.set_page_config(page_title="QalAnalyzer: ቃል Sentiment Analysis", layout="centered")
+from supabase import create_client, Client
 
 # -------------------------------
-# Clean Amharic text
+# Supabase Credentials
+# -------------------------------
+SUPABASE_URL = "https://mtwqcqdshygmdtdtqfav.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im10d3FjcWRzaHlnbWR0ZHRxZmF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1ODU1ODUsImV4cCI6MjA3MDE2MTU4NX0.FjLLbxvrfB3VrzR-nfQcoM1THVJhzWJAxWOhl0WYKM4"
+
+@st.cache_resource
+def init_supabase():
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+supabase: Client = init_supabase()
+
+# -------------------------------
+# Clean Amharic Text
 # -------------------------------
 def clean_amharic(text):
     text = re.sub(r"[^\u1200-\u137F\u1380-\u139F\u2D80-\u2DDF ]", "", text)
     return text.strip()
 
 # -------------------------------
-# Load Model & Vectorizer
+# Load Vectorizer & Model
 # -------------------------------
 @st.cache_resource
 def load_vectorizer():
@@ -201,64 +213,55 @@ def predict_sentiment(text):
     return "positive" if label == 1 else "negative", confidence
 
 # -------------------------------
-# App State Setup
+# Streamlit UI
 # -------------------------------
-if "analyzed" not in st.session_state:
-    st.session_state.analyzed = False
-if "prediction" not in st.session_state:
-    st.session_state.prediction = None
-if "confidence" not in st.session_state:
-    st.session_state.confidence = None
-if "text_input" not in st.session_state:
-    st.session_state.text_input = ""
-
-# -------------------------------
-# UI
-# -------------------------------
+st.set_page_config(page_title="QalAnalyzer | ቃል Analyzer", layout="centered")
 st.title("📊 QalAnalyzer - Amharic Sentiment Classifier")
-st.markdown("Enter Amharic text below to analyze its sentiment. You can help improve the model with your feedback!")
+st.markdown("Analyze Amharic sentiment and help us improve the model with your feedback!")
 
-st.session_state.text_input = st.text_area("📝 Enter Amharic text here:", value=st.session_state.text_input, height=150)
+text_input = st.text_area("📝 Enter Amharic text here:", height=150)
 
 if st.button("🔍 Analyze Sentiment"):
-    if st.session_state.text_input.strip() == "":
-        st.warning("⚠️ Please enter some Amharic text.")
+    if text_input.strip() == "":
+        st.warning("⚠️ Please enter Amharic text.")
     else:
-        label, confidence = predict_sentiment(st.session_state.text_input)
+        label, confidence = predict_sentiment(text_input)
         st.session_state.prediction = label
         st.session_state.confidence = confidence
         st.session_state.analyzed = True
+        st.session_state.text_input = text_input
 
 # -------------------------------
-# Results Section
+# Results + Feedback
 # -------------------------------
-if st.session_state.analyzed:
+if st.session_state.get("analyzed", False):
     st.markdown(f"### 🧠 Prediction: **{st.session_state.prediction.upper()}** ({st.session_state.confidence:.2%} confidence)")
-
     st.markdown("---")
+
     st.subheader("🤔 Was this prediction correct?")
-    feedback = st.radio("Give your feedback:", ["Yes", "No"], horizontal=True, key="feedback_radio")
+    feedback = st.radio("Give your feedback:", ["Yes", "No"], horizontal=True)
 
     if feedback == "No":
         correct_label = st.radio("Select the correct label:", ["positive", "negative"], horizontal=True)
+
         if st.button("✅ Submit Feedback"):
             cleaned_text = clean_amharic(st.session_state.text_input)
-            correct_label_binary = 1 if correct_label == "positive" else 0
-            feedback_data = pd.DataFrame([[cleaned_text, correct_label_binary]], columns=["cleaned_tweet", "label"])
+            label_int = 1 if correct_label == "positive" else 0
 
-            DATA_PATH = "data/processed/amharic_sentiment_cleaned.csv"
-            if os.path.exists(DATA_PATH):
-                existing = pd.read_csv(DATA_PATH)
-                combined = pd.concat([existing, feedback_data], ignore_index=True)
-                combined.drop_duplicates(subset=["cleaned_tweet"], keep="last", inplace=True)
-            else:
-                combined = feedback_data
+            try:
+                supabase.table("qal-analyzer").insert({
+                    "cleaned_tweet": cleaned_text,
+                    "label": label_int,
+                    "created_at": datetime.utcnow().isoformat()
+                }).execute()
+                st.success("✅ Feedback saved to Supabase!")
+            except Exception as e:
+                st.error(f"❌ Error saving feedback: {e}")
 
-            combined.to_csv(DATA_PATH, index=False, encoding="utf-8")
-            st.success("🎉 Thank you! Your feedback has been saved.")
             st.session_state.analyzed = False
             st.session_state.text_input = ""
-    else:
+
+    elif feedback == "Yes":
         st.success("🙌 Awesome! Glad it worked well.")
 
 st.markdown("---")
